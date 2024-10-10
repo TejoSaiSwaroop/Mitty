@@ -44,5 +44,14 @@ client.on('messageCreate', message => {
 
     }
 });
+client.on('messageCreate', message => {
+    if (message.content === '!Hola') {
+        message.channel.send('Hola Amigo! I am the Mystery Box Bot!');
+    }
+});
 
+const PORT = 3100;
+ServiceWorkerRegistration.listen((PORT), () => {
+    console.log(`Listening on http://localhost:${PORT}`);
+});
 client.login(process.env.DISCORD_TOKEN);
