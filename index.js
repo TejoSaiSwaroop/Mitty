@@ -1,5 +1,7 @@
 const { Client, GatewayIntentBits } = require('discord.js');
+const http = require('http');
 require('dotenv').config();
+
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds, 
@@ -12,46 +14,33 @@ client.once('ready', () => {
     console.log('Mitty the Mystery Box Bot is online!');
 });
 
-client.on('guildCreate', guild => {
-    console.log(`Aye Hey Mitty is here to liven up the server!`);
-}
-)
-
-const mysteryItems = [
-    "🎁 Mini Challenge: Share a funny meme!",
-    "🎁 You are now the 'Meme Master' for 24 hours!",
-    "🎁 Compliment the user above you in chat!",
-    "🎁 Share a fun fact!",
-    "🎁 Sike you got nothing lol!",
-];
-
-client.on('messageCreate', message => {
-    if (message.content === '!open') {
-        const randomItem = mysteryItems[Math.floor(Math.random() * mysteryItems.length)];
-        message.channel.send(randomItem);
-    }
-});
-
 client.on('messageCreate', message => {
     if (message.content === '!hello') {
         message.channel.send('Hello @everyone! I am the Mystery Box Bot!');
     }
 });
+
 client.on('messageCreate', message => {
     if (message.content === '!commands') {
         message.channel.send('!hello "Says hello! \n!commands "Lists all commands! \n!open "Gives a mystery challenge!');
-        // message.channel.send('!open "Gives a mystery challenge!"');
-
     }
 });
+
 client.on('messageCreate', message => {
     if (message.content === '!Hola') {
         message.channel.send('Hola Amigo! I am the Mystery Box Bot!');
     }
 });
 
-const PORT = 3100;
-ServiceWorkerRegistration.listen((PORT), () => {
-    console.log(`Listening on http://localhost:${PORT}`);
-});
 client.login(process.env.DISCORD_TOKEN);
+
+// Create an HTTP server to keep the bot alive
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is running\n');
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});
