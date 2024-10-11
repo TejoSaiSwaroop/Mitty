@@ -62,15 +62,29 @@ client.on('messageCreate', async message => {
             highWaterMark: 1 << 25, // Increase buffer size to prevent stalling
             quality: 'highestaudio'
         });
-                const resource = createAudioResource(stream);
+        const resource = createAudioResource(stream);
 
         // Create an audio player and play the stream
         const player = createAudioPlayer();
         player.play(resource);
         connection.subscribe(player);
-
+        
         message.reply('🎶 Playing some chill lo-fi music in your voice channel!');
-
+        player.on(AudioPlayerStatus.Playing, () => {
+            console.log('The bot is playing music!');
+        });
+        
+        player.on(AudioPlayerStatus.Idle, () => {
+            console.log('The music has stopped, leaving the channel.');
+            connection.destroy();
+        });
+        
+        player.on('error', error => {
+            console.error('Error with the audio player:', error);
+            message.channel.send('There was an error playing the music. Please try again later.');
+            connection.destroy();
+        });
+        
         // Automatically leave the channel when the music stops
         player.on('idle', () => {
             connection.destroy();
