@@ -1,50 +1,34 @@
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
+const { Client, GatewayIntentBits } = require('discord.js');
+const { createAudioPlayer, createAudioResource, AudioPlayerStatus, joinVoiceChannel } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
-const cron = require('cron');
-const http = require('http');
 require('dotenv').config();
 
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds, 
         GatewayIntentBits.GuildMessages, 
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildVoiceStates
     ] 
 });
+
 const lofiStreamUrls = [
-    'https://www.youtube.com/watch?v=qlXoh54zock', // Example Lo-Fi YouTube stream link
-    
+    'https://www.youtube.com/watch?v=5qap5aO4i9A', // Example URL
+    // Add more URLs as needed
 ];
 
 client.once('ready', () => {
-    console.log(`${client.user.tag} is online!`);
-
-    // Set up a job that runs at a random time every day
-    const job = new cron.CronJob('0 0 * * *', async () => {
-        // Randomly set a time in the range (e.g., between 12 PM and 6 PM)
-        const randomHour = Math.floor(Math.random() * 6) + 12; // 12 to 17 (12 PM to 5 PM)
-        const randomMinute = Math.floor(Math.random() * 60);
-        const time = `${randomMinute} ${randomHour} * * *`;
-
-        console.log(`Next join will be at: ${randomHour}:${randomMinute}`);
-
-        // Set the next random job
-        new cron.CronJob(time, () => joinAndPlayLofi(), null, true);
-    }, null, true);
-
-    job.start();
+    console.log('Mitty the Mystery Box Bot is online!');
+    joinAndPlayLofi(); // Call the function to join and play lofi music
 });
 
 client.on('messageCreate', async message => {
-    // Check if the message is "!play lofi"
     if (message.content === '!play lofi') {
-        // Make sure the user is in a voice channel
-        const voiceChannel = message.member?.voice.channel;
-        if (!voiceChannel) {
-            return message.reply('You need to be in a voice channel to play lo-fi music!');
+        if (!message.member.voice.channel) {
+            return message.reply('You need to join a voice channel first!');
         }
+
+        const voiceChannel = message.member.voice.channel;
 
         // Join the voice channel
         const connection = joinVoiceChannel({
@@ -84,14 +68,9 @@ client.on('messageCreate', async message => {
             message.channel.send('There was an error playing the music. Please try again later.');
             connection.destroy();
         });
-        
-        // Automatically leave the channel when the music stops
-        player.on('idle', () => {
-            connection.destroy();
-            message.channel.send('The lo-fi session has ended. 🎧');
-        });
     }
 });
+
 async function joinAndPlayLofi() {
     const guild = client.guilds.cache.first(); // Replace with the specific guild if needed
     const musicChannels = guild.channels.cache.filter(channel =>
@@ -122,21 +101,34 @@ async function joinAndPlayLofi() {
     player.play(resource);
     connection.subscribe(player);
 
-    player.on(AudioPlayerStatus.Idle, () => {
-        connection.destroy(); // Leave the channel when the music is done
-        console.log('Music finished, leaving the channel.');
+    player.on(AudioPlayerStatus.Playing, () => {
+        console.log('The bot is playing music!');
     });
 
-    connection.on(VoiceConnectionStatus.Disconnected, () => {
+    player.on(AudioPlayerStatus.Idle, () => {
+        console.log('The music has stopped, leaving the channel.');
         connection.destroy();
     });
 
-    // Send a message in the text channel announcing the session
-    const textChannel = guild.channels.cache.find(channel => channel.type === 0);
-    if (textChannel) {
-        textChannel.send(`🎶 Join me in **${randomChannel.name}** for some chill lo-fi music!`);
-    }
+    player.on('error', error => {
+        console.error('Error with the audio player:', error);
+        connection.destroy();
+    });
 }
+
+client.login(process.env.DISCORD_TOKEN);
+
+// Create an HTTP server to keep the bot alive
+const http = require('http');
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is running\n');
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});
 
 client.once('ready', () => {
     console.log('Mitty the Mystery Box Bot is online!');
@@ -186,13 +178,3 @@ client.on('messageCreate', message => {
 
 client.login(process.env.DISCORD_TOKEN);
 
-// Create an HTTP server to keep the bot alive
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot is running\n');
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
-});
