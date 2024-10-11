@@ -14,8 +14,8 @@ const client = new Client({
     ] 
 });
 const lofiStreamUrls = [
-    'https://www.youtube.com/watch?v=5qap5aO4i9A', // Example Lo-Fi YouTube stream link
-    'https://www.youtube.com/watch?v=jfKfPfyJRdk'
+    'https://www.youtube.com/watch?v=qlXoh54zock', // Example Lo-Fi YouTube stream link
+    
 ];
 
 client.once('ready', () => {
@@ -57,8 +57,12 @@ client.on('messageCreate', async message => {
         const randomLofiUrl = lofiStreamUrls[Math.floor(Math.random() * lofiStreamUrls.length)];
         
         // Stream audio from the YouTube URL using ytdl
-        const stream = ytdl(randomLofiUrl, { filter: 'audioonly', quality: 'highestaudio' });
-        const resource = createAudioResource(stream);
+        const stream = ytdl(randomLofiUrl, {
+            filter: 'audioonly',
+            highWaterMark: 1 << 25, // Increase buffer size to prevent stalling
+            quality: 'highestaudio'
+        });
+                const resource = createAudioResource(stream);
 
         // Create an audio player and play the stream
         const player = createAudioPlayer();
