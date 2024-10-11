@@ -37,6 +37,43 @@ client.once('ready', () => {
     job.start();
 });
 
+client.on('messageCreate', async message => {
+    // Check if the message is "!play lofi"
+    if (message.content === '!play lofi') {
+        // Make sure the user is in a voice channel
+        const voiceChannel = message.member?.voice.channel;
+        if (!voiceChannel) {
+            return message.reply('You need to be in a voice channel to play lo-fi music!');
+        }
+
+        // Join the voice channel
+        const connection = joinVoiceChannel({
+            channelId: voiceChannel.id,
+            guildId: message.guild.id,
+            adapterCreator: message.guild.voiceAdapterCreator,
+        });
+
+        // Pick a random lo-fi stream URL
+        const randomLofiUrl = lofiStreamUrls[Math.floor(Math.random() * lofiStreamUrls.length)];
+        
+        // Stream audio from the YouTube URL using ytdl
+        const stream = ytdl(randomLofiUrl, { filter: 'audioonly', quality: 'highestaudio' });
+        const resource = createAudioResource(stream);
+
+        // Create an audio player and play the stream
+        const player = createAudioPlayer();
+        player.play(resource);
+        connection.subscribe(player);
+
+        message.reply('🎶 Playing some chill lo-fi music in your voice channel!');
+
+        // Automatically leave the channel when the music stops
+        player.on('idle', () => {
+            connection.destroy();
+            message.channel.send('The lo-fi session has ended. 🎧');
+        });
+    }
+});
 async function joinAndPlayLofi() {
     const guild = client.guilds.cache.first(); // Replace with the specific guild if needed
     const musicChannels = guild.channels.cache.filter(channel =>
