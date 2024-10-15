@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { createAudioPlayer, createAudioResource, AudioPlayerStatus, joinVoiceChannel } = require('@discordjs/voice');
-const ytdl = require('ytdl-core');
+const play = require('play-dl');
 require('dotenv').config();
 
 const client = new Client({ 
@@ -12,127 +12,81 @@ const client = new Client({
     ] 
 });
 
-const lofiStreamUrls = [
-    'https://www.youtube.com/watch?v=5qap5aO4i9A', // Example URL
-    // Add more URLs as needed
-];
-
 client.once('ready', () => {
     console.log('Mitty the Mystery Box Bot is online!');
-    joinAndPlayLofi(); // Call the function to join and play lofi music
 });
 
 client.on('messageCreate', async message => {
-    if (message.content === '!play lofi') {
+    if (message.content.startsWith('!play ')) {
         if (!message.member.voice.channel) {
             return message.reply('You need to join a voice channel first!');
         }
 
-        const voiceChannel = message.member.voice.channel;
+        const query = message.content.replace('!play ', '').trim();
+        if (!query) {
+            return message.reply('Please provide a song name or URL.');
+        }
 
-        // Join the voice channel
-        const connection = joinVoiceChannel({
-            channelId: voiceChannel.id,
-            guildId: message.guild.id,
-            adapterCreator: message.guild.voiceAdapterCreator,
-        });
+        try {
+            const voiceChannel = message.member.voice.channel;
+            const connection = joinVoiceChannel({
+                channelId: voiceChannel.id,
+                guildId: message.guild.id,
+                adapterCreator: message.guild.voiceAdapterCreator,
+            });
 
-        // Pick a random lo-fi stream URL
-        const randomLofiUrl = lofiStreamUrls[Math.floor(Math.random() * lofiStreamUrls.length)];
-        
-        // Stream audio from the YouTube URL using ytdl
-        const stream = ytdl(randomLofiUrl, {
-            filter: 'audioonly',
-            highWaterMark: 1 << 25, // Increase buffer size to prevent stalling
-            quality: 'highestaudio'
-        });
-        const resource = createAudioResource(stream);
+            let stream;
+            if (await play.is_expired()) {
+                await play.refreshToken(); // Refresh the token if it has expired
+            }
 
-        // Create an audio player and play the stream
-        const player = createAudioPlayer();
-        player.play(resource);
-        connection.subscribe(player);
-        
-        message.reply('🎶 Playing some chill lo-fi music in your voice channel!');
-        player.on(AudioPlayerStatus.Playing, () => {
-            console.log('The bot is playing music!');
-        });
-        
-        player.on(AudioPlayerStatus.Idle, () => {
-            console.log('The music has stopped, leaving the channel.');
-            connection.destroy();
-        });
-        
-        player.on('error', error => {
-            console.error('Error with the audio player:', error);
-            message.channel.send('There was an error playing the music. Please try again later.');
-            connection.destroy();
-        });
+            if (play.spotify.validate(query)) {
+                const spotifyData = await play.spotify(query);
+                if (!spotifyData) {
+                    throw new Error('Spotify Data is missing');
+                }
+                stream = await play.stream(spotifyData.url);
+            } else {
+                stream = await play.stream(query);
+            }
+
+            const resource = createAudioResource(stream.stream, { inputType: stream.type });
+            const player = createAudioPlayer();
+            player.play(resource);
+            connection.subscribe(player);
+
+            message.reply(`🎶 Playing: ${query}`);
+            player.on(AudioPlayerStatus.Playing, () => {
+                console.log('The bot is playing music!');
+            });
+
+            player.on(AudioPlayerStatus.Idle, () => {
+                console.log('The music has stopped, leaving the channel.');
+                connection.destroy();
+            });
+
+            player.on('error', error => {
+                console.error('Error with the audio player:', error);
+                message.channel.send('There was an error playing the music. Please try again later.');
+                connection.destroy();
+            });
+        } catch (error) {
+            console.error('Error fetching audio:', error);
+            message.reply('There was an error fetching the audio. Please try again.');
+        }
     }
 });
 
-async function joinAndPlayLofi() {
-    const guild = client.guilds.cache.first(); // Replace with the specific guild if needed
-    const musicChannels = guild.channels.cache.filter(channel =>
-        channel.type === 2 && channel.name.toLowerCase().includes('music')
-    );
-
-    if (musicChannels.size === 0) {
-        console.log('No music channels found.');
-        return;
+client.on('messageCreate', message => {
+    if (message.content === '!hello') {
+        message.channel.send('Hello @everyone! I am the Mystery Box Bot!');
     }
-
-    // Select a random music channel
-    const randomChannel = musicChannels.random();
-    const connection = joinVoiceChannel({
-        channelId: randomChannel.id,
-        guildId: guild.id,
-        adapterCreator: guild.voiceAdapterCreator,
-    });
-
-    console.log(`Joining channel: ${randomChannel.name}`);
-
-    const player = createAudioPlayer();
-    const randomLofiUrl = lofiStreamUrls[Math.floor(Math.random() * lofiStreamUrls.length)];
-
-    const stream = ytdl(randomLofiUrl, { filter: 'audioonly', quality: 'highestaudio' });
-    const resource = createAudioResource(stream);
-
-    player.play(resource);
-    connection.subscribe(player);
-
-    player.on(AudioPlayerStatus.Playing, () => {
-        console.log('The bot is playing music!');
-    });
-
-    player.on(AudioPlayerStatus.Idle, () => {
-        console.log('The music has stopped, leaving the channel.');
-        connection.destroy();
-    });
-
-    player.on('error', error => {
-        console.error('Error with the audio player:', error);
-        connection.destroy();
-    });
-}
+});
 
 client.login(process.env.DISCORD_TOKEN);
 
 // Create an HTTP server to keep the bot alive
 const http = require('http');
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot is running\n');
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
-});
-
-client.once('ready', () => {
-    console.log('Mitty the Mystery Box Bot is online!');
-});
 
 client.on('messageCreate', message => {
     if (message.content === '!hello') {
@@ -178,3 +132,13 @@ client.on('messageCreate', message => {
 
 client.login(process.env.DISCORD_TOKEN);
 
+// Create an HTTP server to keep the bot alive
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is running\n');
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});
