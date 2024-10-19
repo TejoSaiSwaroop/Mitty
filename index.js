@@ -49,7 +49,7 @@ client.on('messageCreate', async (message) => {
         dispatcher.on('error', (error) => {
             console.error('Error with the audio player:', error);
             message.channel.send('There was an error playing the music. Please try again later.');
-            connection.disconnect();
+            connection.disconnect);
         });
     }
 });
